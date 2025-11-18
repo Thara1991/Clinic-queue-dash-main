@@ -9,6 +9,9 @@ export interface QueueRoom {
   status: 'active' | 'waiting' | 'calling' | 'completed';
   color?: string;
   station?: string;
+  queue_status?: string;
+  called_times?: number;
+  queue_caption?: string;
 }
 
 export interface Language {
