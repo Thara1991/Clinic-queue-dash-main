@@ -10,6 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import dashboardAPI from './dashboardAPI';
+import { useQueueAnnouncement } from '@/hooks/useQueueAnnouncement';
+import { speakText } from '@/utils/speech';
 
 // Mock data for demonstration
 const mockRooms: QueueRoom[] = [
@@ -95,7 +97,8 @@ export function QueueDashboard() {
       'room-06': '#06B6D4'
     },
     language: 'th',
-    refreshInterval: 5000
+    refreshInterval: 5000,
+    voiceLanguage: 'th'
   });
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -103,6 +106,10 @@ export function QueueDashboard() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2025, 10, 3));
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState<number>(settings.refreshInterval / 1000);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'enabling' | 'error'>('idle');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [isAnnouncing, setIsAnnouncing] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -115,6 +122,7 @@ export function QueueDashboard() {
           console.log('Mapping item:', item);
           return {
             id: `room-${item.id?.[0] || index}`,
+            roomIdRaw: item.room_id ?? item.roomId ?? item.roomID ?? item.id ?? '',
             roomNumber: item.room_name || item.room_number || '',
             doctorName: {
               th: item.uidnam || item.UidNam || '',
@@ -122,9 +130,10 @@ export function QueueDashboard() {
             },
             currentQueue: item.queue_number || 0,
             status: 'active' as const,
-            queue_status: item.queue_status || item.Queue_status || item.queueStatus || '',
+            queue_status: item.queue_status || item.Queue_status || item.queueStatus || item.QUEUE_STATUS || '',
             called_times: item.Called_times || item.called_times || item.calledTimes || 0,
             queue_caption: item.queue_caption || item.queueCaption || '',
+            Call_yon: item.Call_yon || item.CallYon || item.call_yon || item.callYon || '',
             // station removed as requested
           };
         });
@@ -175,6 +184,8 @@ export function QueueDashboard() {
 
   // Countdown timer for auto-refresh
   useEffect(() => {
+    if (isAnnouncing) return;
+
     const countdownInterval = setInterval(() => {
       setRefreshCountdown((prev) => {
         if (prev <= 0) {
@@ -185,10 +196,12 @@ export function QueueDashboard() {
     }, 1000);
 
     return () => clearInterval(countdownInterval);
-  }, [settings.refreshInterval]);
+  }, [settings.refreshInterval, isAnnouncing]);
 
   // Auto-refresh from API
   useEffect(() => {
+    if (isAnnouncing) return;
+
     const interval = setInterval(() => {
       loadDashboardData();
     }, settings.refreshInterval);
@@ -197,13 +210,45 @@ export function QueueDashboard() {
     setRefreshCountdown(settings.refreshInterval / 1000);
 
     return () => clearInterval(interval);
-  }, [settings.refreshInterval]);
+  }, [settings.refreshInterval, isAnnouncing]);
+
+  // Auto-announce queue numbers when called
+  useQueueAnnouncement(rooms, voiceEnabled, settings.voiceLanguage || 'th', {
+    onAnnouncementStart: () => setIsAnnouncing(true),
+    onAnnouncementEnd: () => {
+      setIsAnnouncing(false);
+      setRefreshCountdown(settings.refreshInterval / 1000);
+    }
+  });
 
   const handleRefresh = () => {
     // Load fresh data from API
     loadDashboardData();
     // Reset countdown when manually refreshed
     setRefreshCountdown(settings.refreshInterval / 1000);
+  };
+
+  const getVoiceLanguageCode = (lang: 'th' | 'en' = 'th') => (lang === 'th' ? 'th-TH' : 'en-US');
+
+  const handleEnableVoice = async () => {
+    try {
+      setVoiceStatus('enabling');
+      setVoiceError(null);
+      const sampleText =
+        (settings.voiceLanguage || 'th') === 'th'
+          ? 'ระบบเปิดเสียงประกาศคิวแล้ว'
+          : 'Voice announcements enabled';
+      await speakText(sampleText, {
+        language: getVoiceLanguageCode(settings.voiceLanguage || 'th'),
+        rate: (settings.voiceLanguage || 'th') === 'th' ? 0.9 : 1
+      });
+      setVoiceEnabled(true);
+      setVoiceStatus('idle');
+    } catch (error) {
+      console.error('Failed to enable voice:', error);
+      setVoiceStatus('error');
+      setVoiceError('ไม่สามารถเปิดเสียงได้ กรุณาลองอีกครั้ง');
+    }
   };
 
   return (
@@ -284,10 +329,29 @@ export function QueueDashboard() {
                 size="sm"
                 onClick={handleRefresh}
                 className="flex items-center gap-2"
+                disabled={isAnnouncing}
               >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
               </Button>
+              <div className="flex flex-col items-start">
+                <Button
+                  variant={voiceEnabled ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={handleEnableVoice}
+                  disabled={voiceEnabled || voiceStatus === 'enabling'}
+                  className={`flex items-center gap-2 ${voiceEnabled ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                >
+                  {voiceEnabled
+                    ? 'Voice Enabled'
+                    : voiceStatus === 'enabling'
+                    ? 'Enabling...'
+                    : 'Enable Voice'}
+                </Button>
+                {voiceError && (
+                  <p className="text-xs text-red-500 mt-1">{voiceError}</p>
+                )}
+              </div>
               <Button
                 variant="default"
                 onClick={() => setShowSettings(true)}

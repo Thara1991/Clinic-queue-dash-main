@@ -27,7 +27,10 @@ const colorOptions = [
 export function SettingsPanel({ isOpen, onClose, settings, onSettingsChange }: SettingsPanelProps) {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const [localSettings, setLocalSettings] = useState(settings);
+  const [localSettings, setLocalSettings] = useState<QueueSettings>({
+    ...settings,
+    voiceLanguage: settings.voiceLanguage || 'th'
+  });
 
   if (!isOpen) return null;
 
@@ -35,6 +38,12 @@ export function SettingsPanel({ isOpen, onClose, settings, onSettingsChange }: S
     setLanguage(newLang);
     setLocalSettings(prev => ({ ...prev, language: newLang }));
     onSettingsChange({ ...localSettings, language: newLang });
+  };
+
+  const handleVoiceLanguageChange = (newVoiceLang: 'th' | 'en') => {
+    const newSettings = { ...localSettings, voiceLanguage: newVoiceLang };
+    setLocalSettings(newSettings);
+    onSettingsChange(newSettings);
   };
 
   const handleColorChange = (roomId: string, color: string) => {
@@ -79,6 +88,27 @@ export function SettingsPanel({ isOpen, onClose, settings, onSettingsChange }: S
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="en" id="english" />
                 <Label htmlFor="english">{t('english')}</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Voice Language Settings */}
+          <div>
+            <Label className="text-base font-semibold mb-3 block">
+              Voice Language
+            </Label>
+            <RadioGroup
+              value={localSettings.voiceLanguage || 'th'}
+              onValueChange={(value) => handleVoiceLanguageChange(value as 'th' | 'en')}
+              className="flex flex-row space-x-6"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="th" id="voice-th" />
+                <Label htmlFor="voice-th">Thai</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="en" id="voice-en" />
+                <Label htmlFor="voice-en">English</Label>
               </div>
             </RadioGroup>
           </div>

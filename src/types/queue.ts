@@ -1,5 +1,6 @@
 export interface QueueRoom {
   id: string;
+  roomIdRaw?: string | number;
   roomNumber: string;
   doctorName: {
     th: string;
@@ -12,6 +13,7 @@ export interface QueueRoom {
   queue_status?: string;
   called_times?: number;
   queue_caption?: string;
+  Call_yon?: string;
 }
 
 export interface Language {
@@ -23,6 +25,7 @@ export interface QueueSettings {
   cardColors: Record<string, string>;
   language: Language['code'];
   refreshInterval: number;
+  voiceLanguage?: 'th' | 'en';
 }
 
 // Patient and Queue Management Types

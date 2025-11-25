@@ -31,15 +31,22 @@ export function QueueCard({ room, customColor }: QueueCardProps) {
   // Check queue_status with case-insensitive comparison and trim whitespace
   const queueStatus = room.queue_status?.trim() || '';
   const queueStatusUpper = queueStatus.toUpperCase();
-  const isCalling = queueStatusUpper === 'CALL';
+  const callYon = room.Call_yon?.trim().toUpperCase() || '';
+  const isCalling = callYon === 'Y' && queueStatusUpper === 'CALL';
   const isIn = queueStatusUpper === 'IN';
   const isEmptyStatus = !queueStatus || queueStatus === '';
   // Use red color if called_times is 2 or more
   const isMultipleCalls = isCalling && room.called_times !== undefined && room.called_times >= 2;
   
-  // Debug log to check if calling status is detected
   if (isCalling) {
-    console.log('Queue is calling:', room.roomNumber, 'queue_status:', room.queue_status, 'called_times:', room.called_times);
+    console.log(
+      'Queue is calling:',
+      room.roomNumber,
+      'queue_status:',
+      room.queue_status,
+      'called_times:',
+      room.called_times
+    );
   }
 
   return (

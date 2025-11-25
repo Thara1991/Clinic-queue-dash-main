@@ -29,6 +29,32 @@ class dashboardAPI {
         throw error;
       }
     }
+
+    async callQueue(roomId, called = 'N') {
+      try {
+        const params = new URLSearchParams({
+          id: String(roomId),
+          called: String(called)
+        });
+        const url = `${this.baseURL}/dashboard/callqueue?${params.toString()}`;
+        console.log('CallQueue URL:', url);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json().catch(() => ({}));
+      } catch (error) {
+        console.error('Error calling queue endpoint:', error);
+        throw error;
+      }
+    }
 }
 
 export default new dashboardAPI();
