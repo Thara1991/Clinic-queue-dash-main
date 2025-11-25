@@ -19,9 +19,9 @@ const DB_CONFIG = {
   }
 };
 
-console.log(import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
+console.log(import.meta.env.REACT_APP_API_URL || 'http://localhost:3001/api');
 // Mock API endpoints - replace with actual API calls
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 
 export class DatabaseService {

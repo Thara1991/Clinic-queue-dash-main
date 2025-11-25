@@ -4,14 +4,8 @@ import { QueueCard } from './QueueCard';
 import { SettingsPanel } from './SettingsPanel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { QueueRoom, QueueSettings } from '@/types/queue';
-import { Settings, RefreshCw, Maximize, Minimize, Calendar as CalendarIcon } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
-import { format } from 'date-fns';
-import dashboardAPI from './dashboardAPI';
-import { useQueueAnnouncement } from '@/hooks/useQueueAnnouncement';
-import { speakText } from '@/utils/speech';
+import { Settings, RefreshCw, ListOrdered } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 // Mock data for demonstration
 const mockRooms: QueueRoom[] = [
@@ -97,158 +91,36 @@ export function QueueDashboard() {
       'room-06': '#06B6D4'
     },
     language: 'th',
-    refreshInterval: 5000,
-    voiceLanguage: 'th'
+    refreshInterval: 5000
   });
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  // Default to 2025-10-08 on initial load
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2025, 10, 3));
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [refreshCountdown, setRefreshCountdown] = useState<number>(settings.refreshInterval / 1000);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'enabling' | 'error'>('idle');
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [isAnnouncing, setIsAnnouncing] = useState(false);
 
-  const loadDashboardData = async () => {
-    try {
-      console.log('Loading dashboard data...');
-      const response = await dashboardAPI.DashboardList('OPD-1', format(selectedDate, 'yyyyMMdd'));
-      console.log('Dashboard API Response:', response);
-      
-      if (response.success && response.data && Array.isArray(response.data)) {
-        const mappedRooms = response.data.map((item: any, index: number) => {
-          console.log('Mapping item:', item);
-          return {
-            id: `room-${item.id?.[0] || index}`,
-            roomIdRaw: item.room_id ?? item.roomId ?? item.roomID ?? item.id ?? '',
-            roomNumber: item.room_name || item.room_number || '',
-            doctorName: {
-              th: item.uidnam || item.UidNam || '',
-              en: item.uidnam || item.UidNam || '' // You can add English translation if available
-            },
-            currentQueue: item.queue_number || 0,
-            status: 'active' as const,
-            queue_status: item.queue_status || item.Queue_status || item.queueStatus || item.QUEUE_STATUS || '',
-            called_times: item.Called_times || item.called_times || item.calledTimes || 0,
-            queue_caption: item.queue_caption || item.queueCaption || '',
-            Call_yon: item.Call_yon || item.CallYon || item.call_yon || item.callYon || '',
-            // station removed as requested
-          };
-        });
-        
-        console.log('Mapped rooms:', mappedRooms);
-        setRooms(mappedRooms);
-        setLastUpdated(new Date());
-        // Reset countdown when data is refreshed
-        setRefreshCountdown(settings.refreshInterval / 1000);
-      }
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    }
-  };
-
-  const toggleFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      try {
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      } catch (error) {
-        console.error('Error attempting to enable fullscreen:', error);
-      }
-    } else {
-      try {
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-      } catch (error) {
-        console.error('Error attempting to exit fullscreen:', error);
-      }
-    }
-  };
-
-  // Listen for fullscreen changes
+  // Simulate real-time updates
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  // Load dashboard data on mount
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  // Countdown timer for auto-refresh
-  useEffect(() => {
-    if (isAnnouncing) return;
-
-    const countdownInterval = setInterval(() => {
-      setRefreshCountdown((prev) => {
-        if (prev <= 0) {
-          return settings.refreshInterval / 1000;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(countdownInterval);
-  }, [settings.refreshInterval, isAnnouncing]);
-
-  // Auto-refresh from API
-  useEffect(() => {
-    if (isAnnouncing) return;
-
     const interval = setInterval(() => {
-      loadDashboardData();
+      setRooms(prevRooms => 
+        prevRooms.map(room => ({
+          ...room,
+          currentQueue: room.currentQueue + Math.floor(Math.random() * 2),
+          status: Math.random() > 0.8 ? 'calling' : 
+                 Math.random() > 0.6 ? 'active' : 'waiting'
+        }))
+      );
+      setLastUpdated(new Date());
     }, settings.refreshInterval);
 
-    // Reset countdown when interval changes
-    setRefreshCountdown(settings.refreshInterval / 1000);
-
     return () => clearInterval(interval);
-  }, [settings.refreshInterval, isAnnouncing]);
-
-  // Auto-announce queue numbers when called
-  useQueueAnnouncement(rooms, voiceEnabled, settings.voiceLanguage || 'th', {
-    onAnnouncementStart: () => setIsAnnouncing(true),
-    onAnnouncementEnd: () => {
-      setIsAnnouncing(false);
-      setRefreshCountdown(settings.refreshInterval / 1000);
-    }
-  });
+  }, [settings.refreshInterval]);
 
   const handleRefresh = () => {
-    // Load fresh data from API
-    loadDashboardData();
-    // Reset countdown when manually refreshed
-    setRefreshCountdown(settings.refreshInterval / 1000);
-  };
-
-  const getVoiceLanguageCode = (lang: 'th' | 'en' = 'th') => (lang === 'th' ? 'th-TH' : 'en-US');
-
-  const handleEnableVoice = async () => {
-    try {
-      setVoiceStatus('enabling');
-      setVoiceError(null);
-      const sampleText =
-        (settings.voiceLanguage || 'th') === 'th'
-          ? 'ระบบเปิดเสียงประกาศคิวแล้ว'
-          : 'Voice announcements enabled';
-      await speakText(sampleText, {
-        language: getVoiceLanguageCode(settings.voiceLanguage || 'th'),
-        rate: (settings.voiceLanguage || 'th') === 'th' ? 0.9 : 1
-      });
-      setVoiceEnabled(true);
-      setVoiceStatus('idle');
-    } catch (error) {
-      console.error('Failed to enable voice:', error);
-      setVoiceStatus('error');
-      setVoiceError('ไม่สามารถเปิดเสียงได้ กรุณาลองอีกครั้ง');
-    }
+    // Simulate manual refresh
+    setRooms(prevRooms => 
+      prevRooms.map(room => ({
+        ...room,
+        currentQueue: room.currentQueue + 1
+      }))
+    );
+    setLastUpdated(new Date());
   };
 
   return (
@@ -268,90 +140,21 @@ export function QueueDashboard() {
             <div className="flex items-center gap-4">
               <div className="text-right text-sm text-medical-on-surface-variant">
                 <p>Last Updated: {lastUpdated.toLocaleTimeString()}</p>
-                <p className="text-xs text-medical-primary font-medium">
-                  Next refresh in: {refreshCountdown}s
-                </p>
               </div>
-              {/* Date Picker */}
-              <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="relative w-[180px] cursor-pointer"
-                    onClick={() => setIsDatePickerOpen(true)}
-                  >
-                    <Input
-                      type="text"
-                      value={format(selectedDate, 'MM/dd/yyyy')}
-                      readOnly
-                      className="w-full cursor-pointer pr-12"
-                    />
-                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                      <CalendarIcon className="h-5 w-5 text-gray-500" />
-                    </div>
-                  </div>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="default"
-                      size="icon"
-                      className="bg-purple-600 hover:bg-purple-700"
-                      onClick={() => setSelectedDate(new Date())}
-                    >
-                      <CalendarIcon className="h-4 w-4 text-white" />
-                    </Button>
-                  </PopoverTrigger>
-                </div>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => {
-                      if (date) {
-                        setSelectedDate(date);
-                        setIsDatePickerOpen(false);
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleFullscreen}
-                className="flex items-center gap-2"
-                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-              >
-                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                {isFullscreen ? "Exit" : "Fullscreen"}
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
                 className="flex items-center gap-2"
-                disabled={isAnnouncing}
               >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
               </Button>
-              <div className="flex flex-col items-start">
-                <Button
-                  variant={voiceEnabled ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={handleEnableVoice}
-                  disabled={voiceEnabled || voiceStatus === 'enabling'}
-                  className={`flex items-center gap-2 ${voiceEnabled ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                >
-                  {voiceEnabled
-                    ? 'Voice Enabled'
-                    : voiceStatus === 'enabling'
-                    ? 'Enabling...'
-                    : 'Enable Voice'}
+              <Link to="/manage">
+                <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                  <ListOrdered className="w-4 h-4" /> จัดการคิวผู้ป่วย
                 </Button>
-                {voiceError && (
-                  <p className="text-xs text-red-500 mt-1">{voiceError}</p>
-                )}
-              </div>
+              </Link>
               <Button
                 variant="default"
                 onClick={() => setShowSettings(true)}

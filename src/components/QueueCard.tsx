@@ -28,26 +28,6 @@ export function QueueCard({ room, customColor }: QueueCardProps) {
   };
 
   const pulseAnimation = room.status === 'calling' ? 'animate-pulse' : '';
-  // Check queue_status with case-insensitive comparison and trim whitespace
-  const queueStatus = room.queue_status?.trim() || '';
-  const queueStatusUpper = queueStatus.toUpperCase();
-  const callYon = room.Call_yon?.trim().toUpperCase() || '';
-  const isCalling = callYon === 'Y' && queueStatusUpper === 'CALL';
-  const isIn = queueStatusUpper === 'IN';
-  const isEmptyStatus = !queueStatus || queueStatus === '';
-  // Use red color if called_times is 2 or more
-  const isMultipleCalls = isCalling && room.called_times !== undefined && room.called_times >= 2;
-  
-  if (isCalling) {
-    console.log(
-      'Queue is calling:',
-      room.roomNumber,
-      'queue_status:',
-      room.queue_status,
-      'called_times:',
-      room.called_times
-    );
-  }
 
   return (
     <Card 
@@ -63,8 +43,13 @@ export function QueueCard({ room, customColor }: QueueCardProps) {
           {/* Room Number */}
           <div className="text-center">
             <h2 className="text-4xl font-bold text-medical-primary mb-2">
-              {room.roomNumber}
+              {t('room')} {room.roomNumber}
             </h2>
+            {room.station && (
+              <Badge variant="secondary" className="text-lg px-4 py-1">
+                {room.station}
+              </Badge>
+            )}
           </div>
 
           {/* Doctor Name */}
@@ -80,33 +65,28 @@ export function QueueCard({ room, customColor }: QueueCardProps) {
           {/* Current Queue */}
           <div className="text-center border-t pt-4">
             <p className="text-xl text-medical-on-surface-variant mb-2">
-              {room.queue_status === 'CALL' && room.called_times !== undefined
-                ? `กำลังเรียกคิวครั้งที่ ${room.called_times}`
-                : t('currentQueue')}
+              {t('currentQueue')}
             </p>
             <div className="flex items-center justify-center space-x-4">
               <div 
-                className={cn(
-                  "text-6xl font-bold text-white rounded-lg px-8 py-5 flex items-center justify-center",
-                  isCalling 
-                    ? (isMultipleCalls ? "bg-medical-error queue-blink" : "bg-queue-calling queue-blink")
-                    : isIn
-                    ? "bg-queue-active"
-                    : "bg-medical-primary"
-                )}
-                style={{
-                  width: '220px',
-                  minWidth: '220px',
-                  maxWidth: '220px',
-                  ...(!isCalling && !isIn && customColor ? { backgroundColor: customColor } : {})
-                }}
+                className="text-6xl font-bold text-white bg-medical-primary rounded-lg px-6 py-4 min-w-[120px] flex items-center justify-center"
+                style={customColor ? { backgroundColor: customColor } : {}}
               >
-                {isEmptyStatus 
-                  ? '-'
-                  : (room.queue_caption ? `${room.queue_caption}${room.currentQueue.toString().padStart(3, '0')}` : room.currentQueue.toString().padStart(3, '0'))
-                }
+                {room.currentQueue.toString().padStart(3, '0')}
               </div>
             </div>
+          </div>
+
+          {/* Status Badge */}
+          <div className="text-center">
+            <Badge 
+              className={cn(
+                'text-lg px-6 py-2 font-semibold',
+                getStatusColor(room.status)
+              )}
+            >
+              {t(`status.${room.status}`)}
+            </Badge>
           </div>
         </div>
       </CardContent>
